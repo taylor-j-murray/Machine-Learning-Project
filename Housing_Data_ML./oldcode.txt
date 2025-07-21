@@ -1,0 +1,76 @@
+
+
+Old Code
+
+data = db.copy()
+low_mask = (data['price'] < 100 ) | (data['sqfeet'] < 100) 
+data = data[~low_mask] # Trim the data set of all instances where the price or square footage is less than 100.
+
+We  split the data up by state keeping in mind the min is wy at 186 and we split the data up by bed number
+
+state_array = data['state'].unique()
+
+def bed_state_data(data, state, bed_number : int):
+    data_copy = data.copy()
+    state_mask = (data_copy['state'] == state) # create mask
+    state_data = data_copy[state_mask]
+    max_bed = state_data['beds'].max()
+    if bed_number > max_bed or bed_number < 0:
+        return ValueError ("bed_number parameter is too high")
+    else:
+        bed_state_mask = (state_data['beds'] == bed_number)
+        return state_data[bed_state_mask]
+
+state = 'tx'
+bed_num = 1
+data = bed_state_data(data, state,bed_num).copy()
+
+
+
+
+
+ We will check the top 5 percent of using the quantile method
+ Write code for finding regression when getting rid of a particular quartile e.g. .99999 
+quant = .95
+threshold = data['price'].quantile(quant) 
+top_5_percent = data[data['price'] > threshold]
+top_5_percent.describe()
+
+
+#obsurd_price = data[data['price'] > 10000]
+#obsurd_price.describe()
+#obsurd_price['price'].value_counts(ascending = True).sum()
+
+#def calculate_rent_per_sqfoot(row):
+    #if row['sqfeet'] == 0:
+        #return np.nan 
+    #else:
+        #return row['price']/row['sqfeet'] 
+    
+
+#rent_per_sqfoot = data.apply(calculate_rent_per_sqfoot,axis =1)
+#thresh = rent_per_sqfoot.quantile(.99)
+#rent_per_sqfoot.loc[lambda x : x > 50].std()
+
+
+
+
+def linear_regression_mse(training_data, features_to_use, columns_to_normalize, label_column):
+    
+    training_data_no_labels = training_data.drop(label_column, axis = 1)
+    label_data = training_data[label_column]
+    label_data = label_data.fillna(label_data.median())
+
+    for col in features_to_use:
+        median = training_data_no_labels[col].median()
+        training_data_no_labels[col]= training_data_no_labels[col].fillna(median)
+
+    new_training_data = linear_regression_variables(training_data_no_labels, features_to_use)
+    normalized_data = normalize_columns(new_training_data, columns_to_normalize)
+    
+    lin_reg = LinearRegression()
+    lin_reg.fit(normalized_data, label_data)
+
+    predics = lin_reg.predict(normalized_data)
+    lin_mse = mean_squared_error(label_data, predics)
+    return lin_mse
