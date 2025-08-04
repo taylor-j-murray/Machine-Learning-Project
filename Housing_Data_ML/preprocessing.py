@@ -149,7 +149,7 @@ def NormalMetrics( db : pd.DataFrame, n : int):
     normal_metrics = pd.DataFrame(metrics)
     return normal_metrics.set_index("Standard deviation range")
 
-def ZScoreMetrics(db : pd.DataFrame, id_col = None, zero_std_sub = np.nan):
+def ZScoreMetrics(db : pd.DataFrame, id_col = None, id_col_idx = False, zero_std_sub = np.nan):
     db = db.copy()
     columns = db.columns
     
@@ -160,26 +160,65 @@ def ZScoreMetrics(db : pd.DataFrame, id_col = None, zero_std_sub = np.nan):
     numeric_columns = db.select_dtypes(include = np.number).columns
     nonnumeric_columns = columns.difference(numeric_columns)
     
+    
     for col in numeric_columns:
+        if col == id_col:
+            continue
         mean = db[col].mean()
         std = db[col].std()
         if std != 0:
-            db[col] = (db[col] - mean) / std
+            db['Z-Scores of ' + col] = (db[col] - mean) / std
         else:
-            db[col] = zero_std_sub
+            db['Z-Scores of ' + col] = zero_std_sub
 
     for col in nonnumeric_columns:
-        db[col] = np.nan
+        db['Z-Scores of' + col] = np.nan
         
     db = db.rename(columns = lambda col: f"z-scores for {col}")
+    
+    if not id_col_idx or id_col is None:
+        return db
+    elif id_col_idx and id_col is not None:
+        return db.set_index(id_col)
+    
+    
+def ZScoreFilter(db : pd.DataFrame, bound = 3, col = None, zero_std_sub = np.nan):
+    
+    if col is not None and col not in db.columns:
+        raise ValueError("The inputted column is not a column in the inputted DataFrame")
+    db = db.copy()
+    numeric_columns = db.select_dtypes(include =np.number).columns
+    
+    for column in numeric_columns:
+        mean = db[column].mean()
+        std = db[column].std()
+        if std != 0:
+            db[column] = db[column].map(lambda x : x if np.abs((x-mean)/std)< bound else 'Fails Z-score bound')
+        else:
+            db[column] = zero_std_sub
+    
+    if col is None:
+        return db
+    else:
+        return db[col]
+    
+
         
-    return db if id_col is None else db.set_index(id_col)
+
+
+    
+    
+    
+    
+    
+#def ZScoreFilter(db: pd.DataFrame, col: str, lower_bound = -3, upper_bound =3, invert = False):
     
     
     
 X = pd.DataFrame({'col_1' : [1,5,4,7,89,2,3,4], 'col_2' : [2,5,1,3,2,2,2,2]})
 
 print(ZScoreMetrics(X))
+print(ZScoreFilter(X, bound =2))
 
 #df = pd.DataFrame({
     #'A': np.random.normal(0, 1, 1000),
@@ -229,20 +268,25 @@ def IQRFlag(db : pd.DataFrame, invert = False):
         
     return db
     
-def IQRFilter(db : pd.DataFrame, col : str, invert = False, replace = None):
+def IQRFilter(db : pd.DataFrame, col : str, invert = False):
     if not pd.api.types.is_numeric_dtype(db[col]):
         raise TypeError(f"The dtype of the column inputted is not numeric")
     db = db.copy()
     flagged_data = IQRFlag(db,invert)
     mask = flagged_data['Flag IQR for ' + col] 
     
-    if replace is None:
-        return flagged_data[col][mask]
-    
+    if not invert:
+        filter = flagged_data[col][mask]
+    elif invert:
+        filter = flagged_data[col][~mask]
+    else: 
+        raise ValueError('The invert parameter passed through is not a boolean')
+        
+    return filter
     
     
 
-print(pd.replace)
+
 
 
 
@@ -256,8 +300,8 @@ print(pd.replace)
         
     
 
-print(IQRMetrics(X))
-print(IQRFilter(X, 'col_1'))
+#print(IQRMetrics(X))
+#print(IQRFilter(X, 'col_1'))
 
 
 
