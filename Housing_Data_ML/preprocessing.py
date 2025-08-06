@@ -119,10 +119,7 @@ def PercentageBetween( ser  : pd.Series,a : int, b : int, include_a = True, incl
 
 
 
-#S = pd.Series([1,2,3,4,0,-1])
-#a = 2
-#b = 4
-#print(PercentageBetween(S,a,b))
+
 
 def NormalMetrics( db : pd.DataFrame, n : int):
     columns = db.columns
@@ -213,12 +210,7 @@ def ZScoreFilter(db : pd.DataFrame, bound = 3, col = None, zero_std_sub = np.nan
     
 #def ZScoreFilter(db: pd.DataFrame, col: str, lower_bound = -3, upper_bound =3, invert = False):
     
-    
-    
-X = pd.DataFrame({'col_1' : [1,5,4,7,89,2,3,4], 'col_2' : [2,5,1,3,2,2,2,2]})
 
-print(ZScoreMetrics(X))
-print(ZScoreFilter(X, bound =2))
 
 #df = pd.DataFrame({
     #'A': np.random.normal(0, 1, 1000),
