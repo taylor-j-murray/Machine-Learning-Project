@@ -192,7 +192,7 @@ def IQRFilter(db : pd.DataFrame, col : str, invert = False):
     else: 
         raise ValueError('The invert parameter passed through is not a boolean')
         
-    return filter
+    return filter  
     
     
 
