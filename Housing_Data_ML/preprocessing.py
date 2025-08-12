@@ -162,38 +162,30 @@ def IQRMetrics(db : pd.DataFrame):
     return pd.DataFrame(metrics, index = idx)
         
 
-def IQRFlag(db : pd.DataFrame, invert = False):
+def IQRFlag(db : pd.DataFrame, disclude : list[str] = [], invert = False, filter = False):
     db = db.copy()
-    numeric_columns = db.select_dtypes(include = np.number).columns
+    numeric_columns = [ col for col in db.select_dtypes(include = np.number).columns if col not in disclude]
     for col in numeric_columns:
         bounds = IQRBounds(db[col])
         lower_bound = bounds['Lower Bound']
         upper_bound = bounds['Upper Bound']
         mask = (db[col] > upper_bound) | (db[col] < lower_bound)
+        if invert: 
+            mask = ~mask
+        elif not invert: 
+            pass
         
-        if  invert:
-            db['Flag IQR for ' + col] = mask
-        if not invert:
-            db['Flag IQR for ' + col] = ~mask
-        
+        if filter == False:
+            db['Flag_IQR_for_' + col] = mask
+            
+        elif filter == True:
+            db = db[mask]
+
     return db
     
-def IQRFilter(db : pd.DataFrame, col : str, invert = False):
-    if not pd.api.types.is_numeric_dtype(db[col]):
-        raise TypeError(f"The dtype of the column inputted is not numeric")
-    db = db.copy()
-    flagged_data = IQRFlag(db,invert)
-    mask = flagged_data['Flag IQR for ' + col] 
+
     
-    if not invert:
-        filter = flagged_data[col][mask]
-    elif invert:
-        filter = flagged_data[col][~mask]
-    else: 
-        raise ValueError('The invert parameter passed through is not a boolean')
-        
-    return filter  
-    
+
     
 
 

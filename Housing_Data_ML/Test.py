@@ -20,3 +20,5 @@ pipe = Pipeline(estimators)
 new_X = pipe.fit_transform(X)
 print(new_X)
 print(X)
+
+X

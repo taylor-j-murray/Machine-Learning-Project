@@ -48,90 +48,63 @@ class ReplaceNA(BaseEstimator, TransformerMixin):
 
 
 class StandardizeColumns(BaseEstimator, TransformerMixin):
-
-    def __init__(self, columns = None):
+    def __init__(self, columns=None, verbose=False):
         self.columns = columns
+        self.verbose = verbose
 
-    def fit(self, X : pd.DataFrame, y : pd.Series = None):
+    def fit(self, X: pd.DataFrame, y=None):
         Xc = X.copy()
+        if self.columns is None:
+            self.columns = Xc.select_dtypes(include=np.number).columns.tolist()
         self.means = Xc[self.columns].mean()
-        self.stds = Xc[self.columns].std()
+        self.stds = Xc[self.columns].std(ddof=0)  # population std to avoid tiny variance errors
+        self.zero_var_cols_ = self.stds[self.stds == 0].index.tolist()
+        if self.verbose and self.zero_var_cols_:
+            print(f"[SafeStandardize] Skipping zero-variance columns: {self.zero_var_cols_}")
         return self
-    
-    def transform(self, X : pd.DataFrame):
+
+    def transform(self, X: pd.DataFrame):
         Xc = X.copy()
-
-        if self.columns is None :
-            return Xc
-        
-        
-        missing_col = [col for col in self.columns if col not in Xc.columns]
-
-        if missing_col:
-            raise ValueError(f'Columns not found in input: {missing_col}')
-
-    
         for col in self.columns:
-            std = self.stds.loc[col]
-            if std == 0:
-                Xc[col] = 0
-            
-            else: 
-                Xc[col] = (Xc[col] - self.means.loc[col])/std
-            
-
+            if col in self.zero_var_cols_:
+                continue  # leave unchanged
+            Xc[col] = (Xc[col] - self.means[col]) / self.stds[col]
         return Xc
         
 
 class LogTransform(BaseEstimator, TransformerMixin):
-    
-    def __init__(self, columns = None, replace = True, base : int = None):
+    def __init__(self, columns=None, replace=True, base=None, offset=1, verbose=False):
         self.columns = columns
         self.replace = replace
-        self.base = base # This can be a non-positive real number, but we restrict to int for now
-        
-        
-        if not isinstance(self.replace, bool):
-            raise TypeError(f'The replace parameter must be a boolean, but has received {replace}')
-        if base is not None and base <= 0:
-            raise ValueError(f'The base cannot be non-positive, but has received {base}')
-        
-    def fit(self, X : pd.DataFrame, y : pd.Series = None):
-        # No learning is done
-        return self
-    
-    def transform(self, X : pd.DataFrame):
-        X = X.copy()
-        
-        if self.columns is None:
-            return X
-        
-        missing_col = [col for col in self.columns if col not in X.columns]
-        
-        if missing_col:
-            raise ValueError(f'Columns not found in input: {missing_col}')
-        
-        if self.base is None:
-            D = 1
-        else : 
-            D = np.log(self.base)
-            
-        for col in self.columns:
-            
-            if (X[col]<=0).any():
-                raise ValueError(f'The column {col} contains non-positive values- log is undefined.')
-            
-            log_vals = np.log(X[col])/D
-            
-            
-            if self.replace:
-                X[col] = log_vals
-            else: 
-                X[f'log_{self.base if self.base is not None else np.e}({col})'] = log_vals
-                # Maybe add optional parameter allowing a chosen name for 
-                # the transformed columns
+        self.base = base
+        self.offset = offset  # small shift to avoid log(0)
+        self.verbose = verbose
 
-        return X
+    def fit(self, X: pd.DataFrame, y=None):
+        return self  # no fitting needed
+
+    def transform(self, X: pd.DataFrame):
+        Xc = X.copy()
+        if self.columns is None:
+            return Xc
+
+        D = 1 if self.base is None else np.log(self.base)
+
+        for col in self.columns:
+            bad_vals = Xc[col] + self.offset <= 0
+            if bad_vals.any():
+                if self.verbose:
+                    print(f"[SafeLog] Skipping negative/zero-adjusted values in {col}")
+                continue
+
+            log_vals = np.log(Xc[col] + self.offset) / D
+            if self.replace:
+                Xc[col] = log_vals
+            else:
+                base_str = self.base if self.base is not None else "e"
+                Xc[f"log_{base_str}({col})"] = log_vals
+
+        return Xc
 
 class ArithmeticTransformer(BaseEstimator, TransformerMixin):
     ALLOWED_OPS ={'plus', 'minus', 'multiply', 'divide'}
